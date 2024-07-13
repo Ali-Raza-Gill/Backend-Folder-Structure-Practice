@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "To learn the project setup, how the folder structures created",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "\t"
   },
@@ -12,5 +13,8 @@
     "Development"
   ],
   "author": "Ali Raza",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
 }
