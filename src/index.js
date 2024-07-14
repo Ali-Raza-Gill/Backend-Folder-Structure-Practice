@@ -1,6 +1,6 @@
 /*Common errors comes while connecting to db
 import connectDB from "./db";
-Thier is problem in this code, it will give error because we are trying to connect to db before it is ready because the env file is not ready for whole app, so this will give error.
+Their is problem in this code, it will give error because we are trying to connect to db before it is ready because the env file is not ready for whole app, so this will give error.
 connectDB();
 */
 
@@ -21,9 +21,21 @@ dotenv.config({ path: "./config.env" });
 import connectDB from "./db/index.js";
 // we get constants error here if i didnt use extention, .js, so we give extention to cosntact file and db/index.js file
 
-connectDB();
-//now run this comand to start server npm run dev
-
+//now run this comand to start server npm run dev.
+connectDB()
+  // async|await gives promise always so we use here to connect to port and show error or express, if express is not wroking, now we connect the port
+  .then(() => {
+    app.on("error", (error) => {
+      console.error("Error connecting to DB with Express", error);
+      throw error;
+    });
+    app.lissten(process.env.PORT || 8000, () => {
+      console.log(`App is running on port ${process.env.PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.log("Error connecting to DB !!!", err);
+  });
 //
 //----------------------------
 // IIFE approach to connect to db, in the last i use () this is used to call this function imediately.
