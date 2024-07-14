@@ -1,0 +1,2 @@
+PORT=8000
+MONGODB_URI=mongodb+srv://DBConnetionPractice:1122334455@cluster0.fvz6de8.mongodb.net
