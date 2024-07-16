@@ -1,7 +1,7 @@
 {
   "name": "project-setup",
   "version": "1.0.0",
-  "description": "To learn the project setup, how the folder structures created",
+  "description": "To learn the project setup, how the folder structures created,and all about Backend",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -24,6 +24,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.5.1",
     "mongoose-aggregate-paginate-v2": "^1.1.1"
   }
