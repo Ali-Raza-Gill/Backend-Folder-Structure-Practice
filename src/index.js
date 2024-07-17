@@ -19,6 +19,8 @@ connectDB();
 import dotenv from "dotenv";
 dotenv.config({ path: "./config.env" });
 import connectDB from "./db/index.js";
+import app from "./app.js";
+
 // we get constants error here if i didnt use extention, .js, so we give extention to cosntact file and db/index.js file
 
 //now run this comand to start server npm run dev.
@@ -29,7 +31,7 @@ connectDB()
       console.error("Error connecting to DB with Express", error);
       throw error;
     });
-    app.lissten(process.env.PORT || 8000, () => {
+    app.listen(process.env.PORT || 8000, () => {
       console.log(`App is running on port ${process.env.PORT}`);
     });
   })

@@ -1,12 +1,14 @@
 //Their is 2 methods to do this, we make this to use this in all required places where we want to use DB connections, i write both but here i use promise method.
 
 //1st way is with Promise => with then and catch, here is this:
-const asyncHandler = (requsetHandler) => (req, res, next) => {
-  Promise.resolve(requsetHandler(req, res, next)).catch((error) => {
-    next(error);
-  });
+// I got error in this code, Error=>"requires callback function but got a object", so i resolved this error by returning this function, because this is higer order function, so higher order function will be returned.
+const asyncHandler = (requsetHandler) => {
+  return (req, res, next) => {
+    Promise.resolve(requsetHandler(req, res, next)).catch((error) => {
+      next(error);
+    });
+  };
 };
-
 export { asyncHandler };
 
 // 2nd is try catch method i write both but here i use promise method
