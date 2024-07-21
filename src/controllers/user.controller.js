@@ -38,7 +38,30 @@ const registerUser = asyncHandler(async (req, res) => {
 
   //Now we handle files, on index 0 we get avatar or image link original link so here we required so we use.
   const localAvatarPath = req.files?.avatar[0]?.path;
-  const loacalImagePath = req.files?.coverImage[0]?.path;
+  // we can use one of these two ways
+  // optimized way to solve this problem
+  // 1st way to solve this problem
+  const coverImageLocalPath =
+    req.files?.coverImage && req.files.coverImage[0]
+      ? req.files.coverImage[0].path
+      : null;
+  //we can do this same for avatar as well, and in future we do it.On the other hand we already apply checks, on avatar image.
+
+  //2nd way to solve this problem
+  /*
+  let coverImageLocalPath;
+  if (
+    req.files &&
+    Array.isArray(req.files.coverImage) &&
+    req.files.coverImage.length > 0
+  ) {
+    coverImageLocalPath = req.files.coverImage[0].path;
+  }
+    */
+
+  // 3rd way to solve this problem, but we not use this,bcz when no image, it thow error, not null value.
+  // const loacalImagePath = req.files?.coverImage[0]?.path;
+  //In this way, when i didnt send coverImage it will give error. So we use this if condition to check that the image is sent or not.
 
   if (!localAvatarPath) {
     throw new ApiError(400, "Avatar is required");
@@ -47,7 +70,7 @@ const registerUser = asyncHandler(async (req, res) => {
   // Now use the cloudinary function to upload the avatar and image on cloudinary.
 
   const Avatar = await uploadOnCloudinary(localAvatarPath);
-  const Image = await uploadOnCloudinary(loacalImagePath);
+  const Image = await uploadOnCloudinary(coverImageLocalPath);
 
   if (!Avatar) {
     throw new ApiError(400, "Error uploading avatar on cloudinary");
