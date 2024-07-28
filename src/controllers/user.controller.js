@@ -4,6 +4,22 @@ import { User } from "../models/user.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
+//generate access and refresh token
+const generateAccessAndRefreshTokens = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    const AccessToken = user.generateAccessToken();
+    const RefreshToken = user.generateRefreshToken();
+
+    // Store the tokens in the user object and then send in db
+    user.RefreshToken = RefreshToken;
+    await user.save({ validateBeforeSave: false }); // This will didn't validate that password is entered or not, it will just save the refresh token in db.
+    return { AccessToken, RefreshToken };
+  } catch (error) {
+    throw new ApiError(500, "Error generating access and refresh tokens");
+  }
+};
+
 const registerUser = asyncHandler(async (req, res) => {
   const { username, fullName, email, password } = req.body;
   //Algo to solve this problem
@@ -114,4 +130,95 @@ const registerUser = asyncHandler(async (req, res) => {
     */
 });
 
-export { registerUser };
+const loginUser = asyncHandler(async (req, res) => {
+  //req.body = data => req.body ma user data ay ga
+  // user enter email and password
+  //find user by email
+  //check the password
+  //generate access and refresh token
+  //send them in cookies
+
+  //These both have same functionality, we use one of them.
+  const { email, username, password } = req.body;
+  if (!email && !username) {
+    throw new ApiError(400, "username or email required");
+  }
+  // if (!(email || username)) {
+  //   throw new ApiError(400, "username or email required");
+  // }
+
+  const user = await User.findOne({
+    $or: [{ username }, { email }],
+  });
+  if (!user) {
+    throw new ApiError(400, "User not found");
+  }
+
+  //Here you can write user with samll letters bcz this is actuall user get from db , User this is mehtod of mongoose database.
+  const isPasswordValid = await user.isPasswordCorrect(password);
+  if (!isPasswordValid) {
+    throw new ApiError(400, "Invalid password");
+  }
+
+  const { AccessToken, RefreshToken } = await generateAccessAndRefreshTokens(
+    user._id
+  );
+
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
+
+  // Now send data to cookie and browser
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  //store the access and refresh token in cookie, and send additional options with
+  return res
+    .status(200)
+    .cookie("AccessToken", AccessToken, options)
+    .cookie("RefreshToken", RefreshToken, options)
+    .json(
+      //now we send response to user, better practice,we saved data in cookie, but we do if user want to save data in local storage or any other storage then this data will be shown in user session, otherwise cookie data is not modifiable from user side bcz we enable httpOnly and secure true.
+      new ApiResponse(
+        200, // here send info to user you want.
+        {
+          user: loggedInUser,
+          AccessToken,
+          RefreshToken,
+        },
+        "User logged in successfully"
+      )
+    );
+});
+
+const logOut = asyncHandler(async (req, res) => {
+  // Now i have access of user as req.user=>it gives full user values in access token
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $unset: {
+        // This give us power to set any thing we awant, we remove previous or add new one.
+        RefreshToken: 1,
+      },
+    },
+    {
+      new: true, // this will give us updated user. it is required to get updated user before sending response back
+    }
+  );
+
+  // to remove cookies we want options
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  return res //This will remove the cookies from browser
+    .status(200)
+    .cookie("AccessToken", options)
+    .cookie("RefreshToken", options)
+    .json(new ApiResponse(200, {}, "User logged out successfully"));
+});
+
+export { registerUser, loginUser, logOut };
