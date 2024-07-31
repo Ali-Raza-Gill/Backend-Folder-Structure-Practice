@@ -227,7 +227,7 @@ const refreshAccessToken = asyncHandler(async (res, req) => {
   //now we get refresh token from cookies, two ways we get one is from req.cookies but in native app we get it from body their is no req.cookies.
   const incommingRefreshToken =
     req.cookies?.RefreshToken || req.body.RefreshToken; //comes from user
-  if (incommingRefreshToken) {
+  if (!incommingRefreshToken) {
     throw ApiError(401, "Unauthorized access");
   }
   try {
