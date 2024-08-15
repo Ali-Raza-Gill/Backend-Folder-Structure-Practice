@@ -275,4 +275,133 @@ const refreshAccessToken = asyncHandler(async (res, req) => {
   return;
 });
 
-export { registerUser, loginUser, logOut, refreshAccessToken };
+//This funciton if to change password on the basis of old password and new password
+//user is coming from req.user, it is coming from jwt token.
+//req.body = {oldpassword, newpassword, confirmpassword}
+//we have to check if new password and confirm password is same and old password is correct.
+//if both are correct then we update the password.
+//if not correct then we throw error.
+//we use validateBeforeSave: false to avoid mongoose validation error.
+const changePassword = asyncHandler(async (req, res) => {
+  const { oldpassword, newpassword, confirmpassword } = req.body; //we only put new password here we can add additional check for new password and confirm new password simply.
+
+  if (!(newpassword === confirmpassword)) {
+    throw ApiError(400, "New password and confirm new password should be same");
+  }
+  // we have user in req.user so we get id from it, and with query we get full user.
+  const user = await User.findById(req.user?._id);
+
+  const isPasswordCorrect = await user.isPasswordCorrect(oldpassword); // This will check the old password is correct or not,if not correct it will throw error.
+
+  if (!isPasswordCorrect) {
+    throw ApiError(400, "Old password is incorrect");
+  }
+
+  //If old password is correct then we will update the new password
+  user.password = newpassword;
+  await user.save({ validateBeforeSave: false });
+
+  //Now we will send the response
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password changed successfully"));
+});
+
+//Now I want to update user data based on our need, which fields we want to update.
+//1. We get the data from req.body
+//2. We find the user by id whcih we get from req.user._id
+//3. We update the user
+//4. We send the response
+//5. We catch the error
+//6. We throw error
+//7. We send response
+
+const updateUserDetails = asyncHandler(async (req, res) => {
+  const { fullName, email } = req.body; //we carefully enter fullName and email, which comes from user model.
+  if (!fullName || !email) {
+    throw new ApiError(400, "All fields are required");
+  }
+  const user = await User.findByIdAndUpdate(
+    // in all User. we user await, bcz it takes some time
+    req.user?._id,
+    {
+      $set: {
+        //this will update the user
+        fullName, //we also user old syntex of fullName and email like => fullName:fullName, email:email
+        email,
+      },
+    }, //Here we user mongoDB operators that will update the user and prebuild operators in mongoDB.we have to learn monogDB operator
+    { new: true } // this will return the updated value, or data
+  ).select("-password"); //we don't want password and refreshToken in response so we use select function. we also done this after the user is updated when we get then we hit the api that hide user password and refreshToken in case if we want to hide the refreshToken in response.
+
+  return res
+    .status(200)
+    .ApiResponse(200, user, "User details updated successfully");
+});
+
+// Same for update user avatar, and cover image just copy paste it and change the name of the file.
+const updateUserAvatar = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path; // here i user file not files, bcz we have only one file, when we upload multiple files we use files as i use in add user.
+
+  if (!avatarLocalPath) {
+    throw new ApiError(400, "Avatar file is missing!");
+  }
+
+  const avatar = await uploadOnCloudinary(avatarLocalPath); // This will upload the file on cloudinary.
+  if (!avatar) {
+    throw new ApiError(500, "Failed to upload updated avatar");
+  }
+  // Now we have to update the user Avatar
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        avatar: avatar.url, //we use avatar.url to get the url of the avatar, not the whole object bcz in model we decleare as string, not object.
+      },
+    },
+    { new: true } // this will return the updated value, or data
+  ).select("-password");
+  // here also we remove the password and refreshToken from response if required.
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "User avatar updated successfully"));
+});
+
+// this is  for cover image update
+const updateUserConverImage = asyncHandler(async (req, res) => {
+  const coverImageLocalPath = req.file?.path; // here i user file not files, bcz we have only one file, when we upload multiple files we use files as i use in add user.
+
+  if (!coverImageLocalPath) {
+    throw new ApiError(400, "Avatar file is missing!");
+  }
+
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath); // This will upload the file on cloudinary.
+  if (!coverImage) {
+    throw new ApiError(500, "Failed to upload updated avatar");
+  }
+  // Now we have to update the user Avatar
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        coverImage: coverImage.url, //we use avatar.url to get the url of the avatar, not the whole object bcz in model we decleare as string, not object.
+      },
+    },
+    { new: true } // this will return the updated value, or data
+  ).select("-password");
+  // here also we remove the password and refreshToken from response if required.
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "User coverImage updated successfully"));
+});
+
+export {
+  registerUser,
+  loginUser,
+  logOut,
+  refreshAccessToken,
+  changePassword,
+  updateUserDetails,
+  updateUserAvatar,
+  updateUserConverImage,
+};
