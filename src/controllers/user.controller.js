@@ -308,6 +308,13 @@ const changePassword = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "Password changed successfully"));
 });
 
+// Get Current User
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(200, req.user, "User Featched Successfully"));
+});
+
 //Now I want to update user data based on our need, which fields we want to update.
 //1. We get the data from req.body
 //2. We find the user by id whcih we get from req.user._id
@@ -491,14 +498,77 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
   );
 });
 
+const getWatchHistory = asyncHandler(async (req, res) => {
+  // req.user._id => This is mongodb String not complete id, the complete id is ObjectId("61d1b1c7b7f9b6b6b6b6b6b6") , we have to convert first this string in to MongoDB id, the string actually conveted by mongoose behind the scene and convert it MongoDB id.
+
+  const user = await User.aggregate([
+    //These are pipelines that we apply on our database.
+    {
+      $match: {
+        // _id: new mongoose.Types.ObjectId(req.user._id), //Old way of converting string to MongoDB ObjectId
+        _id: new ObjectId(req.user?._id), //This is the latest way of converting string to MongoDB ObjectId
+      },
+    },
+    // Here in this code we user nested pipelines, bcz we have to get video history from video and in video we have to get user also whcih is owner, so we use nested pipelines.
+    {
+      // we get all the video documents which are in watch history
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        pipeline: [
+          // we use pipeline inside of owner, so user data will be in owner, we have to check, and user pipeline outside of the owner and see how we get it.
+          {
+            //we get the owner details in array,
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    //here we send only that values which we want to send in videos collection
+                    username: 1,
+                    avatar: 1,
+                    fullName: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $addFields: {
+              owner: {
+                $first: "$owner", //we also use 2nd method which is=> $arrayElemAt:["$owner",0]
+              },
+            },
+          },
+        ],
+      },
+    },
+  ]);
+
+  return res.json(
+    new ApiResponse(
+      200,
+      user[0].watchHistory,
+      "Watch History fetched successfully"
+    )
+  );
+});
+
 export {
   registerUser,
   loginUser,
   logOut,
   refreshAccessToken,
   changePassword,
+  getCurrentUser,
   updateUserDetails,
   updateUserAvatar,
   updateUserConverImage,
   getUserChannelProfile,
+  getWatchHistory,
 };
