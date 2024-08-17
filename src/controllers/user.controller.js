@@ -1,9 +1,10 @@
-import { asyncHandler } from "../utils/asyncHandler.js"; // here i add extension .js , because i some time it gives errors in debugging process,so we need to add extension.
+import { asyncHandler } from "../utils/asyncHandler.js"; // here i add extension .js , because some time it gives errors in debugging process,so we need to add extension.
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import Jwt from "jsonwebtoken";
+import { deleteImageBeforeUpload } from "../utils/deleteImageAfterUpload.js";
 
 //generate access and refresh token
 const generateAccessAndRefreshTokens = async (userId) => {
@@ -336,7 +337,7 @@ const updateUserDetails = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .ApiResponse(200, user, "User details updated successfully");
+    .json(new ApiResponse(200, user, "User details updated successfully"));
 });
 
 // Same for update user avatar, and cover image just copy paste it and change the name of the file.
@@ -390,9 +391,104 @@ const updateUserConverImage = asyncHandler(async (req, res) => {
     { new: true } // this will return the updated value, or data
   ).select("-password");
   // here also we remove the password and refreshToken from response if required.
+
+  // I think we can delete image with this method also, but we make a utils funtion to remove image after upload image to cloudinary and when we get url of the image then we delete it.
+  if (user?.avatar) {
+    await deleteImageBeforeUpload(user?.avatar);
+  }
+  // if(user.avatar){
+  //   await cloudinary.uploader.destroy(user.avatar);
+  // }
   return res
     .status(200)
     .json(new ApiResponse(200, user, "User coverImage updated successfully"));
+});
+
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { username } = req?.params; // we get username from params of the request, bcz when we open the url/channel the username is in the url, almost in all the cases.
+  if (!username?.trim()) {
+    throw new ApiError(400, "userName is missing!");
+  }
+  // now i expect that i got the userName, now i will find the user with that userName
+
+  {
+    /* const user = await User.findOne({ username });*/
+  }
+  // we can get user in this method, but after this method, again we apply aggregation methods, but we directly aggregate user bcz we study match field , match will auto match the username and then operation will apply on it.
+
+  // here i will apply aggregation methods. aggregate is a method which takes array and inside of it we add pipelines, which are objects form.
+  // User.aggregate([{},{},{}])
+
+  const channel = await User.aggregate([
+    //These are pipelines that we apply on our database.
+    {
+      $match: {
+        // this will match the username from DB and with the given username, that we get from url
+        username: username?.toLowerCase(),
+      },
+    },
+    {
+      // we get the subscribers from subscriptions collection
+      $lookup: {
+        from: "subscriptions", //from which collection i want to get the data, in database, collections will be in lowercase and plural, that's why we use this.
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        // we get the subscribed channels from subscriptions collection
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribed",
+      },
+    },
+    {
+      $addFields: {
+        subscribersCount: {
+          $size: "$subscribers", //we use $size to get the size of the subscribers array
+        },
+        subscribedCount: {
+          $size: "$subscribed", //we use $size to get the size of the subscribed channel array
+        },
+        isSubscribed: {
+          $cond: {
+            // $in works as it checks if the value is present in the array or not,  $in works for both array and object
+            if: { $in: [req.user?.id, "$subscribers.subscriber"] }, //In If Condition we get userId, then from subscribers we get the subscriber array.
+            then: true, // if userId is present in the subscriber array then we return true
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      // we get the details of the user from user collection and we also remove the password and refreshToken from response if required. now the response will have all the data of the user which is below in the project section. $project is user to send response to user.
+      $project: {
+        // just turn flags on, for those values you want to send in the response.
+        email: 1,
+        fullName: 1,
+        username: 1,
+        avatar: 1,
+        coverImage: 1,
+        subscribersCount: 1,
+        subscribedCount: 1,
+        isSubscribed: 1,
+        createdAt: 1, // to show channel creation date
+      },
+    },
+  ]);
+
+  if (!channel?.length) {
+    throw new ApiError(404, "Channel does not exist!");
+  }
+  console.log(channel); // This will show how and which values we get from the DB
+
+  return res.json(
+    new ApiResponse(200, channel[0], "Channel fetched successfully") // we need only 1st element
+    // This will return array but we need 1st element, so we use [0], so in this way this will become a object. If we don't do this this will bit hard frontend dev, now we make it object.
+  );
 });
 
 export {
@@ -404,4 +500,5 @@ export {
   updateUserDetails,
   updateUserAvatar,
   updateUserConverImage,
+  getUserChannelProfile,
 };
